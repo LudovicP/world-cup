@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Coupe du Monde 2026 — Bracket en direct</title>
+  <link rel="preconnect" href="https://flagcdn.com" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <span class="brand-kicker">WORLD CUP</span>
+      <span class="brand-title">2026</span>
+    </div>
+
+    <div class="header-status">
+      <span id="liveDot" class="live-dot" data-state="idle"></span>
+      <span id="updatedAt" class="updated-at" data-i18n="loading">Chargement…</span>
+    </div>
+
+    <div class="header-controls">
+      <button id="refreshBtn" class="btn" type="button" data-i18n-title="refresh" title="Rafraîchir">
+        <span aria-hidden="true">⟳</span>
+      </button>
+      <div class="lang-toggle" role="group" aria-label="Language">
+        <button class="lang-btn" data-lang="fr" type="button">FR</button>
+        <button class="lang-btn" data-lang="en" type="button">EN</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="stage">
+    <!-- Loading / error overlays -->
+    <div id="overlay" class="overlay" hidden>
+      <div class="overlay-card">
+        <div id="overlaySpinner" class="spinner"></div>
+        <p id="overlayMsg" data-i18n="loading">Chargement des données…</p>
+        <button id="overlayRetry" class="btn btn-primary" type="button" hidden data-i18n="retry">Réessayer</button>
+      </div>
+    </div>
+
+    <!-- The circular bracket -->
+    <svg id="bracket" class="bracket-svg" viewBox="0 0 1000 1000"
+         preserveAspectRatio="xMidYMid meet" role="img"
+         aria-label="World Cup 2026 knockout bracket"></svg>
+
+    <!-- Match detail popover -->
+    <aside id="detail" class="detail-panel" hidden></aside>
+
+    <!-- Round legend -->
+    <div class="legend" id="legend"></div>
+  </main>
+
+  <footer class="app-footer">
+    <span data-i18n="dataSource">Données :</span>
+    <a href="https://github.com/rezarahiminia/worldcup2026" target="_blank" rel="noopener">worldcup2026 API</a>
+    <span class="dot-sep">•</span>
+    <span data-i18n="updatesEvery">Mise à jour toutes les 30 s</span>
+  </footer>
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>
