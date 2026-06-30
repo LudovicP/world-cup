@@ -2,6 +2,7 @@
 
 import { polar, RING } from "./bracket.js";
 import { roundLabel, t } from "./i18n.js";
+import { matchInstantMs, formatShort } from "./time.js";
 
 const CENTER = 500;
 
@@ -12,6 +13,9 @@ let clipSeq = 0;
 export function renderBracket(svg, bracket, ctx) {
   clipSeq = 0;
   const { teamsById } = ctx;
+  const stadiumsById = ctx.stadiumsById ?? new Map();
+  const cityOf = (game) =>
+    game.stadiumId ? stadiumsById.get(game.stadiumId)?.cityEn ?? null : null;
 
   const defs = [];
   const connectors = [];
@@ -40,7 +44,7 @@ export function renderBracket(svg, bracket, ctx) {
     // Final winner is shown as the champion at the very center
     if (node.round !== "final") {
       nodes.push(winnerBadge(node, teamsById, defs));
-      const chip = scoreChip(node);
+      const chip = scoreChip(node, cityOf(node.game));
       if (chip) chips.push(chip);
     }
   }
@@ -53,7 +57,13 @@ export function renderBracket(svg, bracket, ctx) {
     return `<path class="connector ${finalNode.game.status === "finished" ? "winner" : ""}" d="M ${f(a.x)} ${f(a.y)} L 0 0" />`;
   })();
 
-  const center = trophyAndChampion(bracket.champion, teamsById, defs);
+  // when the final hasn't produced a champion yet, show its scheduled kickoff
+  const fg = finalNode.game;
+  const finalDate =
+    bracket.champion || fg.status === "finished"
+      ? null
+      : formatShort(matchInstantMs(fg.localDate, cityOf(fg))) ?? chipDate(fg.localDate);
+  const center = trophyAndChampion(bracket.champion, teamsById, defs, finalDate);
 
   svg.innerHTML = `
     <defs>
@@ -62,15 +72,28 @@ export function renderBracket(svg, bracket, ctx) {
         <stop offset="35%" stop-color="#15131a" stop-opacity="0.5"/>
         <stop offset="100%" stop-color="#07070a" stop-opacity="0"/>
       </radialGradient>
-      <radialGradient id="goldGrad" cx="50%" cy="35%" r="70%">
-        <stop offset="0%" stop-color="#fff1c2"/>
-        <stop offset="45%" stop-color="#f5c451"/>
-        <stop offset="100%" stop-color="#b8860b"/>
-      </radialGradient>
       <radialGradient id="centerGlow" cx="50%" cy="50%" r="50%">
         <stop offset="0%" stop-color="#f5c451" stop-opacity="0.55"/>
         <stop offset="40%" stop-color="#b8860b" stop-opacity="0.22"/>
         <stop offset="100%" stop-color="#f5c451" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="trophyGold" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#fff3c4"/>
+        <stop offset="22%" stop-color="#f7cf63"/>
+        <stop offset="55%" stop-color="#d9a528"/>
+        <stop offset="100%" stop-color="#9c6f12"/>
+      </linearGradient>
+      <linearGradient id="trophyShine" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stop-color="#9c6f12"/>
+        <stop offset="30%" stop-color="#ffe9a0"/>
+        <stop offset="50%" stop-color="#fffbe8"/>
+        <stop offset="70%" stop-color="#ffe9a0"/>
+        <stop offset="100%" stop-color="#8f6410"/>
+      </linearGradient>
+      <radialGradient id="globeGrad" cx="38%" cy="30%" r="80%">
+        <stop offset="0%" stop-color="#fffbe8"/>
+        <stop offset="40%" stop-color="#f3c54e"/>
+        <stop offset="100%" stop-color="#a9780f"/>
       </radialGradient>
       <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
         <feGaussianBlur stdDeviation="6" result="b"/>
@@ -177,11 +200,27 @@ function badge({ angle, r, radius, team, fallback, ringCls, matchId, defs }) {
   </g>`;
 }
 
-// ---------- chips (score / live minute) ----------
+// ---------- chips (score / live minute / kickoff) ----------
 
-function scoreChip(node) {
+function scoreChip(node, city) {
   const g = node.game;
-  if (g.status === "notstarted") return null;
+  // kickoff in the viewer's timezone (falls back to the raw venue-local string)
+  const dateStr = formatShort(matchInstantMs(g.localDate, city)) ?? chipDate(g.localDate);
+  const radius = NODE_R[node.round] ?? 13;
+  const p = polar(node.angle, node.r + radius + 9);
+
+  // upcoming match: a single date/time chip, no score yet
+  if (g.status === "notstarted") {
+    if (!dateStr) return null;
+    const w = dateStr.length * 5.4 + 12;
+    return `<g class="date-chip" pointer-events="none">
+      <rect x="${f(p.x - w / 2)}" y="${f(p.y - 8)}" width="${f(w)}" height="16" rx="6"/>
+      <text x="${f(p.x)}" y="${f(p.y + 0.5)}">${esc(dateStr)}</text>
+    </g>`;
+  }
+
+  // played match (live/finished): split for readability — date on the outer
+  // side of the flag, score on the inner side, so the badge sits between them.
   const h = g.homeScore ?? 0;
   const a = g.awayScore ?? 0;
   let label = `${h}–${a}`;
@@ -190,21 +229,23 @@ function scoreChip(node) {
     const min = g.liveMinute != null ? `${g.liveMinute}'` : "•";
     label = `${min}  ${h}–${a}`;
   }
-  const p = polar(node.angle, node.r + (NODE_R[node.round] ?? 13) + 9);
   const w = label.length * 6.2 + 10;
   const cls = g.status === "live" ? "score-badge live" : "score-badge";
-  const dateStr = chipDate(g.localDate);
+  // screen-space: date directly above the flag, score directly below it
+  const fp = polar(node.angle, node.r);
   const dateEl = dateStr
-    ? `<text class="chip-date" x="${f(p.x)}" y="${f(p.y - 13)}">${esc(dateStr)}</text>`
+    ? `<text class="chip-date" x="${f(fp.x)}" y="${f(fp.y - radius - 11)}">${esc(dateStr)}</text>`
     : "";
-  return `<g class="${cls}" pointer-events="none">
+  return `<g pointer-events="none">
     ${dateEl}
-    <rect x="${f(p.x - w / 2)}" y="${f(p.y - 8)}" width="${f(w)}" height="16" rx="6"/>
-    <text x="${f(p.x)}" y="${f(p.y + 0.5)}">${esc(label)}</text>
+    <g class="${cls}">
+      <rect x="${f(fp.x - w / 2)}" y="${f(fp.y + radius + 5)}" width="${f(w)}" height="16" rx="6"/>
+      <text x="${f(fp.x)}" y="${f(fp.y + radius + 13.5)}">${esc(label)}</text>
+    </g>
   </g>`;
 }
 
-// "MM/DD/YYYY HH:MM" -> "DD/MM HH:MM"
+// raw venue-local fallback "MM/DD/YYYY HH:MM" -> "DD/MM HH:MM"
 function chipDate(localDate) {
   if (!localDate) return null;
   const m = String(localDate).match(/^(\d{1,2})\/(\d{1,2})\/\d{2,4}(?:\s+(\d{1,2}:\d{2}))?/);
@@ -215,35 +256,64 @@ function chipDate(localDate) {
 
 // ---------- center: trophy + champion ----------
 
-function trophyAndChampion(championId, teamsById, defs) {
+function trophyAndChampion(championId, teamsById, defs, finalDate) {
+  // FIFA World Cup trophy: a golden globe cradled by two upswept twisting
+  // figures on a green-banded base. Drawn in a local frame (globe at y≈-70,
+  // base bottom at y≈+62) and scaled into the bracket center.
+  const body =
+    "M -21 -80 C -32 -70 -31 -52 -25 -42 C -19 -31 -13 -15 -11 2 " +
+    "C -10 14 -11 24 -13 33 L 13 33 C 11 24 10 14 11 2 " +
+    "C 13 -15 19 -31 25 -42 C 31 -52 32 -70 21 -80 " +
+    "C 13 -86 7 -66 0 -58 C -7 -66 -13 -86 -21 -80 Z";
   const trophy = `
-    <circle cx="0" cy="-6" r="115" fill="url(#centerGlow)"/>
-    <g transform="translate(0,-4) scale(1.55)" filter="url(#glow)">
-      <path d="M -18 -36 L 18 -36 Q 16 -8 0 -4 Q -16 -8 -18 -36 Z" fill="url(#goldGrad)"/>
-      <path d="M -18 -33 C -33 -32 -33 -13 -17 -16" fill="none" stroke="url(#goldGrad)" stroke-width="3.5"/>
-      <path d="M 18 -33 C 33 -32 33 -13 17 -16" fill="none" stroke="url(#goldGrad)" stroke-width="3.5"/>
-      <path d="M -5 -4 L 5 -4 L 6 7 L -6 7 Z" fill="url(#goldGrad)"/>
-      <rect x="-13" y="7" width="26" height="5" rx="1.5" fill="url(#goldGrad)"/>
-      <rect x="-17" y="12" width="34" height="5" rx="1.5" fill="url(#goldGrad)"/>
+    <circle cx="0" cy="-20" r="120" fill="url(#centerGlow)"/>
+    <g transform="translate(0,-14) scale(0.7)">
+      <g filter="url(#glow)" opacity="0.4">
+        <path d="${body}" fill="#f5c451"/>
+        <circle cx="0" cy="-70" r="24" fill="#f5c451"/>
+      </g>
+      <path d="M -15 33 L 15 33 L 22 42 L 22 58 Q 22 62 18 62 L -18 62 Q -22 62 -22 58 L -22 42 Z" fill="url(#trophyGold)"/>
+      <rect x="-22" y="44" width="44" height="6.5" fill="#1f7a3d"/>
+      <rect x="-22" y="52.5" width="44" height="6" fill="#1f7a3d"/>
+      <path d="${body}" fill="url(#trophyGold)"/>
+      <path d="M -5 -52 C -11 -26 -9 0 -7 31 L 6 31 C 9 0 11 -26 5 -52 C 3 -58 -3 -58 -5 -52 Z" fill="url(#trophyShine)" opacity="0.5"/>
+      <path d="M -16 -64 C -8 -36 -4 -8 -2 30" fill="none" stroke="#8a5f0c" stroke-width="1.3" opacity="0.55"/>
+      <path d="M 16 -64 C 6 -34 3 -6 2 30" fill="none" stroke="#8a5f0c" stroke-width="1.3" opacity="0.55"/>
+      <circle cx="0" cy="-70" r="24" fill="url(#globeGrad)"/>
+      <g transform="rotate(-12 0 -70)">
+        <g fill="none" stroke="#8a5f0c" stroke-width="1.1" opacity="0.55">
+          <ellipse cx="0" cy="-70" rx="24" ry="8.5"/>
+          <ellipse cx="0" cy="-70" rx="8.5" ry="24"/>
+          <path d="M -22.5 -78 H 22.5 M -22.5 -62 H 22.5"/>
+        </g>
+        <path d="M -11 -83 q 6 -2 9 2 q 4 1 4 5 q -2 4 -7 3 q -2 4 -7 2 q -4 -2 -2 -6 q -3 -4 3 -6 Z" fill="#9c6f12" opacity="0.5"/>
+        <path d="M 7 -64 q 6 1 5 6 q -4 4 -8 0 q -2 -5 3 -6 Z" fill="#9c6f12" opacity="0.5"/>
+      </g>
+      <ellipse cx="-9" cy="-80" rx="5" ry="2.6" fill="#fffbe8" opacity="0.45" transform="rotate(-25 -9 -80)"/>
     </g>`;
 
-  if (!championId) return trophy;
+  if (!championId) {
+    const dateLabel = finalDate
+      ? `<text class="final-date" x="0" y="46">${esc(t("final"))} · ${esc(finalDate)}</text>`
+      : "";
+    return `${trophy}${dateLabel}`;
+  }
   const team = teamsById.get(championId);
   const champBadge = team
     ? (() => {
         const id = `clip${clipSeq++}`;
-        defs.push(`<clipPath id="${id}"><circle cx="0" cy="-58" r="18"/></clipPath>`);
+        defs.push(`<clipPath id="${id}"><circle cx="0" cy="-94" r="11"/></clipPath>`);
         return `<g>
-          <circle cx="0" cy="-58" r="20" fill="#0e0e15"/>
-          <image href="${esc(team.flag)}" x="-20" y="-78" width="40" height="40" clip-path="url(#${id})" preserveAspectRatio="xMidYMid slice"/>
-          <circle cx="0" cy="-58" r="20" class="slot-ring winner"/>
+          <circle cx="0" cy="-94" r="13" fill="#0e0e15"/>
+          <image href="${esc(team.flag)}" x="-13" y="-107" width="26" height="26" clip-path="url(#${id})" preserveAspectRatio="xMidYMid slice"/>
+          <circle cx="0" cy="-94" r="13" class="slot-ring winner"/>
         </g>`;
       })()
     : "";
   const name = team ? esc(team.nameEn) : "";
-  return `${champBadge}${trophy}
-    <text class="champion-name" x="0" y="40">${name}</text>
-    <text class="round-label" x="0" y="58" style="fill:var(--gold);opacity:.8">${esc(t("champion"))}</text>`;
+  return `${trophy}${champBadge}
+    <text class="champion-name" x="0" y="46">${name}</text>
+    <text class="round-label" x="0" y="64" style="fill:var(--gold);opacity:.8">${esc(t("champion"))}</text>`;
 }
 
 // ---------- helpers ----------

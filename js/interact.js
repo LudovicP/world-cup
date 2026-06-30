@@ -1,6 +1,7 @@
 // Match-detail popover + node selection. Uses event delegation on the SVG.
 
 import { t, roundLabel } from "./i18n.js";
+import { matchInstantMs, formatFull, viewerZone } from "./time.js";
 
 let state = null; // { svg, detailEl, getContext, selectedId }
 
@@ -78,7 +79,14 @@ function buildDetailHTML(node, ctx) {
   const pens = buildPenalties(node, home, away);
   const stadium = g.stadiumId ? stadiumsById.get(g.stadiumId) : null;
   const meta = [];
-  if (g.localDate) meta.push(`<div><strong>${esc(t("date"))}:</strong> ${esc(g.localDate)}</div>`);
+  const ms = matchInstantMs(g.localDate, stadium ? stadium.cityEn : null);
+  if (ms != null) {
+    meta.push(
+      `<div><strong>${esc(t("date"))}:</strong> ${esc(formatFull(ms))} <span class="d-tz">(${esc(viewerZone())})</span></div>`
+    );
+  } else if (g.localDate) {
+    meta.push(`<div><strong>${esc(t("date"))}:</strong> ${esc(g.localDate)}</div>`);
+  }
   if (stadium)
     meta.push(
       `<div><strong>${esc(t("stadium"))}:</strong> ${esc(stadium.nameEn)}, ${esc(stadium.cityEn)}</div>`

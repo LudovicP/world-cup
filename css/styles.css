@@ -95,13 +95,19 @@ body {
 
 .header-controls { display: flex; align-items: center; gap: 10px; }
 
+/* header controls share one height so they line up cleanly */
 .btn {
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: var(--card);
   color: var(--ink);
   border: 1px solid var(--card-border);
   border-radius: 8px;
-  padding: 7px 11px;
+  padding: 0 13px;
   font-size: 15px;
+  line-height: 1;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, transform 0.1s;
 }
@@ -112,15 +118,18 @@ body {
 
 .lang-toggle {
   display: inline-flex;
+  height: 34px;
   border: 1px solid var(--card-border);
   border-radius: 8px;
   overflow: hidden;
 }
 .lang-btn {
+  display: inline-flex;
+  align-items: center;
   background: var(--card);
   color: var(--ink-dim);
   border: none;
-  padding: 7px 12px;
+  padding: 0 14px;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -171,7 +180,13 @@ body {
 
 .round-label { fill: var(--ink-dim); font-size: 11px; letter-spacing: 0.14em; text-anchor: middle; text-transform: uppercase; }
 
-.chip-date { fill: var(--ink-dim); font-size: 8.5px; font-weight: 600; text-anchor: middle; }
+.chip-date { fill: var(--ink-dim); font-size: 9px; font-weight: 700; text-anchor: middle; dominant-baseline: middle; }
+
+/* upcoming-match kickoff chip (date/time, viewer's timezone) */
+.date-chip text { fill: var(--ink-dim); font-size: 9px; font-weight: 700; text-anchor: middle; dominant-baseline: middle; }
+.date-chip rect { fill: rgba(0, 0, 0, 0.72); stroke: var(--line-dim); }
+
+.final-date { fill: var(--ink-dim); font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-anchor: middle; text-transform: uppercase; }
 
 .champion-name { fill: var(--gold); font-size: 15px; font-weight: 800; text-anchor: middle; }
 .live-min { fill: var(--live); font-size: 9px; font-weight: 800; text-anchor: middle; }
@@ -219,6 +234,7 @@ body {
 .d-scorer-flag--empty { background: var(--line-dim); }
 .d-meta { font-size: 12px; color: var(--ink-dim); margin-top: 10px; line-height: 1.5; }
 .d-meta strong { color: var(--ink); font-weight: 600; }
+.d-tz { opacity: 0.7; }
 
 /* ---------- Legend ---------- */
 .legend {
