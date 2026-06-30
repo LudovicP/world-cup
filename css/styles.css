@@ -150,6 +150,7 @@ body {
 .connector { fill: none; stroke: #34343f; stroke-width: 1.6; }
 .connector.decided { stroke: #565667; }
 .connector.live { stroke: var(--live); stroke-width: 2.4; }
+.connector.winner { stroke: var(--gold); stroke-width: 2.4; }
 
 .slot-ring { fill: none; stroke: var(--card-border); stroke-width: 2; }
 .slot-ring.undecided { stroke-dasharray: 3 4; opacity: 0.6; }

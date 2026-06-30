@@ -22,12 +22,14 @@ export function renderBracket(svg, bracket, ctx) {
   for (const node of bracket.matchNodes) {
     const childR = node.home.r; // both children share a ring
     const status = node.game.status;
-    const connClass =
-      status === "live" ? "live" : status === "finished" ? "decided" : "";
+    // the segment a side traversed is gold ("winner") if that side won this match,
+    // tracing each winner's path inward; otherwise live (red) / decided / dim.
+    const sideClass = (wins) =>
+      wins ? "winner" : status === "live" ? "live" : status === "finished" ? "decided" : "";
 
     // connectors: each child -> node (radial segment + arc on the node ring)
-    connectors.push(connectorPath(node.home, node, childR, connClass));
-    connectors.push(connectorPath(node.away, node, childR, connClass));
+    connectors.push(connectorPath(node.home, node, childR, sideClass(node.winnerSide === "home")));
+    connectors.push(connectorPath(node.away, node, childR, sideClass(node.winnerSide === "away")));
 
     // R32 matches own the two outer team slots
     if (node.round === "r32") {
@@ -47,7 +49,8 @@ export function renderBracket(svg, bracket, ctx) {
   const finalNode = bracket.finalNode;
   const fStem = (() => {
     const a = polar(finalNode.angle, finalNode.r);
-    return `<path class="connector ${finalNode.game.status === "finished" ? "decided" : ""}" d="M ${f(a.x)} ${f(a.y)} L 0 0" />`;
+    // champion's last step to the trophy = gold when the final is decided
+    return `<path class="connector ${finalNode.game.status === "finished" ? "winner" : ""}" d="M ${f(a.x)} ${f(a.y)} L 0 0" />`;
   })();
 
   const center = trophyAndChampion(bracket.champion, teamsById, defs);
